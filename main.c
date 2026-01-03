@@ -121,16 +121,16 @@ void updatePoint(struct point *p){
 
 struct point *rotatePoint(struct point *p, float angle){
     float x = p->ox;
-    float z = p->oz;  
+    float z = p->oz-2.5;  
     
-    float center_z = 1.0 + dz;
+    // float center_z = 1.0 + dz;
     
-    z = z - center_z;
+    // z = z - center_z;
     
     p->x = x * cos(angle) - z * sin(angle);
     p->z = x * sin(angle) + z * cos(angle);
     
-    p->z += center_z;
+    // p->z += center_z;
     
     return p;
 }
