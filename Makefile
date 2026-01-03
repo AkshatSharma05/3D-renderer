@@ -8,7 +8,7 @@ build:
 
 build/3drender: $(BUILD)/main.o 
 # 	echo "Linking and finalizing"
-	gcc $(CFLAGS) $(BUILD)/main.o -o $(BUILD)/3drender `sdl2-config --cflags --libs`
+	gcc $(CFLAGS) $(BUILD)/main.o -o $(BUILD)/3drender -lm `sdl2-config --cflags --libs`
 	chmod +x $(BUILD)/3drender
 # 	./$(BUILD)/final
 
