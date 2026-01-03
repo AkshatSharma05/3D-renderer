@@ -3,8 +3,8 @@
 #include <stdbool.h>
 #include <math.h>
 
-#define WINDOW_WIDTH  	640
-#define WINDOW_HEIGHT 	480
+#define WINDOW_WIDTH  	640.0
+#define WINDOW_HEIGHT 	480.0
 #define FPS			  	60.0
 
 SDL_Window* window = NULL;
@@ -46,6 +46,7 @@ int main(){
 		createPoint(-0.5, -0.5,  3.0, 5),
 	};
 
+	
 	while(running){
 		while(SDL_PollEvent(&ev) != 0){
 			switch(ev.type){
@@ -59,21 +60,37 @@ int main(){
 		
 		SDL_SetRenderDrawColor( renderer, 0, 255, 0, 255 );
 		
-		// dz = 0;
 		dz += 0.0001*(1000/FPS);
-
+		
+		
 		for(int i = 0; i < (int) (sizeof(points)/sizeof(struct point)); i++){
 			updatePoint(rotatePoint(&points[i], angle));
-			SDL_RenderFillRect(renderer, &points[i].r);
+		}
+
+		int edges[][2] = {
+			{0, 1}, {1, 3}, {3, 2}, {2, 0},
+			{4, 5}, {5, 7}, {7, 6}, {6, 4},
+			{0, 4}, {1, 5}, {2, 6}, {3, 7}
+		};
+		
+		for(int i = 0; i < 12; i++){
+			int p1 = edges[i][0];
+			int p2 = edges[i][1];
+			
+			int x1 = points[p1].r.x + points[p1].r.w / 2;
+			int y1 = points[p1].r.y + points[p1].r.h / 2;
+			int x2 = points[p2].r.x + points[p2].r.w / 2;
+			int y2 = points[p2].r.y + points[p2].r.h / 2;
+			
+			SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
 		}
 
 		angle+=2.0*3.14*(1000.0/FPS)*0.0001;
-		printf("%f\n", dz);
 		
 		SDL_RenderPresent(renderer);
-		SDL_Delay(1000/FPS);
+		SDL_Delay(1000.0/FPS);
 	}
-
+	
 	deInitSDL2();
 	
 	return 0;
@@ -112,7 +129,6 @@ struct point createPoint(float x, float y, float z, float size){
 }
 
 void updatePoint(struct point *p){
-	// p->z += dz;
 	p->pz = p->z + dz;
 	p->px = p->x/p->pz;
 	p->py = p->y/p->pz;
@@ -123,14 +139,8 @@ struct point *rotatePoint(struct point *p, float angle){
     float x = p->ox;
     float z = p->oz-2.5;  
     
-    // float center_z = 1.0 + dz;
-    
-    // z = z - center_z;
-    
     p->x = x * cos(angle) - z * sin(angle);
     p->z = x * sin(angle) + z * cos(angle);
-    
-    // p->z += center_z;
     
     return p;
 }
