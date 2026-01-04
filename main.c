@@ -2,14 +2,18 @@
 #include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <math.h>
+#include <string.h>
+#include <stdint.h>
 
-#define WINDOW_WIDTH  	640.0
-#define WINDOW_HEIGHT 	480.0
+#define WINDOW_WIDTH  	128.0
+#define WINDOW_HEIGHT 	64.0
 #define FPS			  	60.0
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 SDL_Event ev;
+
+SDL_Texture* oledTarget = NULL;
 
 bool running = true;
 
@@ -31,21 +35,34 @@ struct point{
 	SDL_Rect r;
 };
 
+uint32_t pixels[128 * 64];
+
+uint8_t bmap[1024];  // 128 * 8(pages)
+
 int main(){
+	
 	initSDL2();
+	
+	SDL_SetRenderTarget(renderer, oledTarget);
+	SDL_RenderClear(renderer);
 	
 	struct point points[] = {
 		createPoint(0.5,  0.5 ,  2.0, 5),
 		createPoint(-0.5, 0.5 ,  2.0, 5),
 		createPoint(0.5,  -0.5,  2.0, 5),
 		createPoint(-0.5, -0.5,  2.0, 5),
-
+		
 		createPoint(0.5,  0.5 ,  3.0, 5),
 		createPoint(-0.5, 0.5 ,  3.0, 5),
 		createPoint(0.5,  -0.5,  3.0, 5),
 		createPoint(-0.5, -0.5,  3.0, 5),
 	};
 
+	int edges[][2] = {
+		{0, 1}, {1, 3}, {3, 2}, {2, 0},
+		{4, 5}, {5, 7}, {7, 6}, {6, 4},
+		{0, 4}, {1, 5}, {2, 6}, {3, 7}
+	};
 	
 	while(running){
 		while(SDL_PollEvent(&ev) != 0){
@@ -55,10 +72,12 @@ int main(){
 				break;
 			}
 		}
+		memset(bmap, 0, sizeof(bmap)); //clear bitmap each frame
+
 		SDL_SetRenderDrawColor( renderer, 0, 0, 0, 255 );
 		SDL_RenderClear( renderer );
 		
-		SDL_SetRenderDrawColor( renderer, 0, 255, 0, 255 );
+		SDL_SetRenderDrawColor( renderer, 255, 255, 255, 255 );
 		
 		dz += 0.0001*(1000/FPS);
 		
@@ -67,12 +86,6 @@ int main(){
 			updatePoint(rotatePoint(&points[i], angle));
 		}
 
-		int edges[][2] = {
-			{0, 1}, {1, 3}, {3, 2}, {2, 0},
-			{4, 5}, {5, 7}, {7, 6}, {6, 4},
-			{0, 4}, {1, 5}, {2, 6}, {3, 7}
-		};
-		
 		for(int i = 0; i < 12; i++){
 			int p1 = edges[i][0];
 			int p2 = edges[i][1];
@@ -83,9 +96,27 @@ int main(){
 			int y2 = points[p2].r.y + points[p2].r.h / 2;
 			
 			SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
+			SDL_RenderFillRect(renderer, &points[i].r);
 		}
 
+		SDL_RenderReadPixels(
+			renderer,
+			NULL,
+			SDL_PIXELFORMAT_ARGB8888,
+			pixels,
+			128 * 4
+		);
+
+		for (int i = 0; i < 128 * 64; i++) {
+			uint32_t p = pixels[i];
+			if (((p >> 16) & 0xFF) > 128) {  // checking only one of the channels, as its either black or white
+				bmap[i / 8] |= (1 << (7 - (i % 8))); //check notes!
+			}
+		}
+		
 		angle+=2.0*3.14*(1000.0/FPS)*0.0001;
+
+		SDL_SetRenderTarget(renderer, NULL); //set renderer back to window
 		
 		SDL_RenderPresent(renderer);
 		SDL_Delay(1000.0/FPS);
@@ -107,9 +138,18 @@ void initSDL2(){
 	if(!(renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED))){
 		printf("Renderer creation failed! \n");
 	}
+	
+	if(!(oledTarget = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 128, 64))){
+		printf("Failed to create OLED Target!\n");
+	}
 }
 
 void deInitSDL2(){
+	for(int i = 0; i < (int)(sizeof(bmap)); i++){
+		printf("0x%02X, ", bmap[i]);
+		// printf("0x%08X\n", pixels[i]);
+
+	}
 	SDL_DestroyWindow(window);
 	SDL_DestroyRenderer(renderer);
 	SDL_Quit();
@@ -122,7 +162,7 @@ struct point createPoint(float x, float y, float z, float size){
 		.pz = z, .s = size
 	};
 
-	p.r = (SDL_Rect) { WINDOW_WIDTH*(p.x+1)/2 - p.s/2, WINDOW_HEIGHT* (1 - (p.y+1)/2) - p.s/2, p.s, p.s };
+	p.r = (SDL_Rect) { WINDOW_WIDTH*(p.x+1)/2 - p.s/2, WINDOW_HEIGHT*(1 - (p.y+1)/2) - p.s/2, p.s, p.s };
 	SDL_RenderFillRect(renderer, &p.r);
 	
 	return p;
